@@ -154,7 +154,7 @@ class LoginViewController: UIViewController {
             }
             
             DispatchQueue.main.async {
-                self?.spinner.dismiss()
+                strongSelf.spinner.dismiss()
             }
             
             guard let result = authResult, error == nil else {
@@ -162,6 +162,9 @@ class LoginViewController: UIViewController {
                 return
             }
             let user = result.user
+            
+            UserDefaults.standard.set(email, forKey: "email")
+            
             print("Logged in User: \(user)")
             strongSelf.navigationController?.dismiss(animated: true, completion: nil)
         })
@@ -225,6 +228,7 @@ extension LoginViewController: LoginButtonDelegate {
                 return
             }
             
+            UserDefaults.standard.set(email, forKey: "email")
             
 //            let nameComponents = userName.components(separatedBy: " ")
             
