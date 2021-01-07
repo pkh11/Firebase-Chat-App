@@ -400,7 +400,6 @@ extension DatabaseManager {
                     return nil
                 }
                 
-                
                 var kind: MessageKind?
                 if type == "photo" {
                     // photo
@@ -443,6 +442,7 @@ extension DatabaseManager {
                 }
                 
                 let sender = Sender(photoURL: "", senderId: senderEmail, displayName: name)
+                
                 
                 return Message(sender: sender, messageId: messageID, sentDate: date, kind: finalKind)
             })
