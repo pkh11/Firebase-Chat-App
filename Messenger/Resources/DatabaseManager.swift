@@ -354,6 +354,7 @@ extension DatabaseManager {
     }
     
     /// Fetches and returns all conversations for the user with passed in email
+    // #PKH: 채팅방 목록 리스트 조회
     public func getAllConversations(for email: String, completion: @escaping (Result<[Conversation], Error>) -> Void) {
         database.child("\(email)/conversations").observe(.value, with: { snapshot in
             guard let value = snapshot.value as? [[String:Any]] else {
@@ -381,6 +382,7 @@ extension DatabaseManager {
     }
     
     /// Gets all messages for a given conversation
+    // #PKH: 채팅방 내의 대화 목록 리스트 조회
     public func getAllMessagesForConversation(with id: String, completion: @escaping (Result<[Message], Error>) -> Void) {
         database.child("\(id)/messages").observe(.value, with: { snapshot in
             guard let value = snapshot.value as? [[String:Any]] else {
@@ -451,6 +453,7 @@ extension DatabaseManager {
     }
     
     /// Send a message with target conversation and message
+    // #PKH: 메세지 보내기
     public func sendMessage(to conversation: String, otherUserEmail: String, name: String, newMessage: Message, completion: @escaping (Bool) -> Void) {
         // add new message to messages
         // update sender latest message
@@ -462,6 +465,7 @@ extension DatabaseManager {
         
         let currentEmail = DatabaseManager.safeEmail(emailAddress: myEmail)
         
+        // #PKH: 현재 대화방 메세지 조회
         database.child("\(conversation)/messages").observeSingleEvent(of: .value, with: { [weak self] snapshot in
             guard let strongSelf = self else {
                 return
@@ -527,14 +531,14 @@ extension DatabaseManager {
             currentMessages.append(newMessageEntry)
             
             
-            // 각 채팅방에 대화 내용 뿌리기
+            // #PKH: 채팅방에 대화 내용 뿌리기
             strongSelf.database.child("\(conversation)/messages").setValue(currentMessages) { error, _ in
                 guard error == nil else {
                     completion(false)
                     return
                 }
                 
-                // 채팅방 속 참여자(나)에게 대화 내용 실시간 subscribe
+                // #PKH: 채팅방 속 나의 대화 내용 실시간 조회
                 strongSelf.database.child("\(currentEmail)/conversations").observeSingleEvent(of: .value, with: { snapshot in
                     var databaseEntryConversations = [[String: Any]]()
                     let updatedValue: [String: Any] = [
@@ -581,14 +585,14 @@ extension DatabaseManager {
                         ]
                     }
                     
-                    // 채팅방 나에게 최신대화 뿌리기
+                    // #PKH: 채팅방 속 나의 대화 내용 실시간 조회 + 최신대화 저장
                     strongSelf.database.child("\(currentEmail)/conversations").setValue(databaseEntryConversations, withCompletionBlock: { error, _ in
                         guard error == nil else {
                             completion(false)
                             return
                         }
                         
-                        // 채팅방 상대방 최신 대화 subscribe
+                        // #PKH: 채팅방 상대방 최신 대화 조회
                         // Update latest message for recipient user
                         strongSelf.database.child("\(otherUserEmail)/conversations").observeSingleEvent(of: .value, with: { snapshot in
                             let updatedValue: [String: Any] = [
@@ -644,7 +648,7 @@ extension DatabaseManager {
                                 ]
                             }
                             
-                            // 상대방 최신대화 뿌리기
+                            // #PKH: 상대방 대화 리스트 조회 + 최신대화 저장
                             strongSelf.database.child("\(otherUserEmail)/conversations").setValue(databaseEntryConversations, withCompletionBlock: { error, _ in
                                 guard error == nil else {
                                     completion(false)
@@ -659,7 +663,7 @@ extension DatabaseManager {
             }
         })
     }
-    
+    // #PKH: 채팅방 삭제
     public func deleteConversation(conversationId: String, completion: @escaping (Bool) -> Void) {
         guard let email = UserDefaults.standard.value(forKey: "email") as? String else {
             return

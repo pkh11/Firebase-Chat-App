@@ -18,7 +18,7 @@ final class ChatViewController: MessagesViewController {
     private var senderPhotoURL: URL?
     private var otherUserPhotoURL: URL?
     
-    public static let dateFormatter: DateFormatter = {
+    static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .long
@@ -379,7 +379,7 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
         
         let safeCurrentEmail = DatabaseManager.safeEmail(emailAddress: currentUserEmail)
         
-        let dateString = Self.dateFormatter.string(from: Date())
+        let dateString = ChatViewController.dateFormatter.string(from: Date())
         let newIdentifier = "\(otherUserEmail)_\(safeCurrentEmail)_\(dateString)"
         print("create message id : \(newIdentifier)")
         
@@ -388,6 +388,75 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
 }
 
 extension ChatViewController: MessagesDataSource, MessagesLayoutDelegate, MessagesDisplayDelegate {
+    
+    func messageTopLabelHeight(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> CGFloat {
+        return 20
+    }
+    
+    func messageBottomLabelHeight(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> CGFloat {
+        return 16
+    }
+    
+    func cellTopLabelHeight(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> CGFloat {
+        return 18
+    }
+    
+    func cellBottomLabelHeight(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> CGFloat {
+        return 17
+    }
+    
+    func cellTopLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
+        // #PKH: 날짜 비교하여 section에 추가
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        
+        var saveDiffrentDates = [Int]()
+        if var tempDate = messages.first {
+            saveDiffrentDates.append(0)
+            
+            for index in 0..<messages.count {
+                if dateFormatter.string(from: messages[index].sentDate) != dateFormatter.string(from: tempDate.sentDate) {
+                    saveDiffrentDates.append(index)
+                    tempDate = messages[index]
+                }
+            }
+        }
+    
+        if saveDiffrentDates.contains(indexPath.section) {
+            return NSAttributedString(string: MessageKitDateFormatter.shared.string(from: message.sentDate), attributes: [NSAttributedString.Key.font: UIFont.boldSystemFont(ofSize: 10), NSAttributedString.Key.foregroundColor: UIColor.darkGray])
+        }
+        
+        return nil
+    }
+    // #PKH: 메세지 읽음 표시
+    // TODO: 읽었는지 안읽었는지 판단
+    func cellBottomLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
+        return NSAttributedString(string: "Read", attributes: [NSAttributedString.Key.font: UIFont.boldSystemFont(ofSize: 10), NSAttributedString.Key.foregroundColor: UIColor.darkGray])
+    }
+    
+    // #PKH: 보낸사람/받는사람 이름 표시
+    func messageTopLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
+        let name = message.sender.displayName
+        return NSAttributedString(string: name, attributes: [NSAttributedString.Key.font: UIFont.preferredFont(forTextStyle: .caption1)])
+    }
+    
+    // #PKH: 메세지 보낸 시간 표시
+    func messageBottomLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+        dateFormatter.timeStyle = .short
+        dateFormatter.locale = Locale(identifier: "ko")
+        
+        let dateString = dateFormatter.string(from: message.sentDate)
+        let dateParsed = dateString.split(separator: " ")[3...4]
+    
+        let mid = dateParsed[3]
+        let time = dateParsed[4]
+        let sentDate = "\(mid) \(time)"
+        
+        return NSAttributedString(string: sentDate, attributes: [NSAttributedString.Key.font: UIFont.preferredFont(forTextStyle: .caption2)])
+    }
+    
     func currentSender() -> SenderType {
         if let sender = selfSender {
             return sender
@@ -419,6 +488,8 @@ extension ChatViewController: MessagesDataSource, MessagesLayoutDelegate, Messag
             break
         }
     }
+    
+    
     
     func backgroundColor(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> UIColor {
         let sender = message.sender
@@ -488,6 +559,7 @@ extension ChatViewController: MessagesDataSource, MessagesLayoutDelegate, Messag
 }
 
 extension ChatViewController: MessageCellDelegate {
+    
     func didTapMessage(in cell: MessageCollectionViewCell) {
         guard let indexPath = messagesCollectionView.indexPath(for: cell) else {
             return
