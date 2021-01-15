@@ -390,6 +390,22 @@ extension DatabaseManager {
                 return
             }
             
+            // TODO: 읽음처리 (as-is(비효율적) : observe -> update -> setValue -> observe -> )
+            // is_read true로 저장
+            
+            /*
+            for var message in value {
+                message["is_read"] = true
+            }
+            self.database.child("\(id)/messages").setValue(value)
+            
+            self.database.child("\(id)/messages").observe(.value, with: { snapshot in
+                guard let value = snapshot.value as? [[String: Any]] else {
+                    completion(.failure(DatabaseError.failedToFetch))
+                    return
+                }
+            })
+            */
             let messages: [Message] = value.compactMap({ dictionary in
                 guard let name = dictionary["name"] as? String,
                       let isRead = dictionary["is_read"] as? Bool,
@@ -445,9 +461,9 @@ extension DatabaseManager {
                 
                 let sender = Sender(photoURL: "", senderId: senderEmail, displayName: name)
                 
-                
-                return Message(sender: sender, messageId: messageID, sentDate: date, kind: finalKind)
+                return Message(sender: sender, messageId: messageID, sentDate: date, kind: finalKind, is_read: isRead)
             })
+            
             completion(.success(messages))
         })
     }
@@ -529,7 +545,6 @@ extension DatabaseManager {
             ]
             
             currentMessages.append(newMessageEntry)
-            
             
             // #PKH: 채팅방에 대화 내용 뿌리기
             strongSelf.database.child("\(conversation)/messages").setValue(currentMessages) { error, _ in

@@ -126,7 +126,8 @@ final class ChatViewController: MessagesViewController {
             let message = Message(sender: selfSender,
                                   messageId: messageId,
                                   sentDate: Date(),
-                                  kind: .location(location))
+                                  kind: .location(location),
+                                  is_read: false)
             
             DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message, completion: { success in
                 if success {
@@ -261,7 +262,8 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
                     let message = Message(sender: selfSender,
                                           messageId: messageId,
                                           sentDate: Date(),
-                                          kind: .photo(media))
+                                          kind: .photo(media),
+                                          is_read: false)
                     
                     DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message, completion: { success in
                         
@@ -305,7 +307,8 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
                     let message = Message(sender: selfSender,
                                           messageId: messageId,
                                           sentDate: Date(),
-                                          kind: .video(media))
+                                          kind: .video(media),
+                                          is_read: false)
                     
                     DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message, completion: { success in
                         
@@ -336,7 +339,7 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
         
         print("Sending: \(text)")
         
-        let message = Message(sender: selfSender, messageId: messageId, sentDate: Date(), kind: .text(text))
+        let message = Message(sender: selfSender, messageId: messageId, sentDate: Date(), kind: .text(text), is_read: false)
         
         // Send Message
         if isNewConversation {
@@ -431,6 +434,10 @@ extension ChatViewController: MessagesDataSource, MessagesLayoutDelegate, Messag
     // #PKH: 메세지 읽음 표시
     // TODO: 읽었는지 안읽었는지 판단
     func cellBottomLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
+        
+        print(message)
+        
+        
         return NSAttributedString(string: "Read", attributes: [NSAttributedString.Key.font: UIFont.boldSystemFont(ofSize: 10), NSAttributedString.Key.foregroundColor: UIColor.darkGray])
     }
     

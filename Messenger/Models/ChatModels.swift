@@ -15,6 +15,7 @@ struct Message: MessageType {
     public var messageId: String
     public var sentDate: Date
     public var kind: MessageKind
+    public var is_read: Bool
 }
 
 extension MessageKind {
