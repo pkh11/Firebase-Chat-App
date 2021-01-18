@@ -127,7 +127,7 @@ final class ChatViewController: MessagesViewController {
                                   messageId: messageId,
                                   sentDate: Date(),
                                   kind: .location(location),
-                                  is_read: false)
+                                  is_read: false, readUsers: [:])
             
             DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message, completion: { success in
                 if success {
@@ -263,7 +263,7 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
                                           messageId: messageId,
                                           sentDate: Date(),
                                           kind: .photo(media),
-                                          is_read: false)
+                                          is_read: false, readUsers: [:])
                     
                     DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message, completion: { success in
                         
@@ -308,7 +308,7 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
                                           messageId: messageId,
                                           sentDate: Date(),
                                           kind: .video(media),
-                                          is_read: false)
+                                          is_read: false, readUsers: [:])
                     
                     DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message, completion: { success in
                         
@@ -339,7 +339,7 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
         
         print("Sending: \(text)")
         
-        let message = Message(sender: selfSender, messageId: messageId, sentDate: Date(), kind: .text(text), is_read: false)
+        let message = Message(sender: selfSender, messageId: messageId, sentDate: Date(), kind: .text(text), is_read: false, readUsers: [otherUserEmail: false])
         
         // Send Message
         if isNewConversation {

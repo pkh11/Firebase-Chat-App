@@ -185,6 +185,7 @@ extension DatabaseManager {
                 return
             }
             
+            let readUsers: [String:Bool] = [safeEmail:true, otherUserEmail:false]
             let messageDate = firstMessage.sentDate
             let dateString = ChatViewController.dateFormatter.string(from: messageDate)
             
@@ -222,7 +223,8 @@ extension DatabaseManager {
                 "latest_message" : [
                     "date": dateString,
                     "message": message,
-                    "is_read" : false
+                    "is_read" : false,
+                    "readUsers" : readUsers
                 ]
             ]
             
@@ -233,7 +235,8 @@ extension DatabaseManager {
                 "latest_message" : [
                     "date": dateString,
                     "message": message,
-                    "is_read" : false
+                    "is_read" : false,
+                    "readUsers" : readUsers
                 ]
             ]
             // Update recipent conversation entry
@@ -260,7 +263,7 @@ extension DatabaseManager {
                         completion(false)
                         return
                     }
-                    self?.finishCreatingConversation(name: name, conversationID: conversationId, firstMessage: firstMessage, completion: completion)
+                    self?.finishCreatingConversation(name: name, participants: readUsers, conversationID: conversationId, firstMessage: firstMessage, completion: completion)
                 })
             } else {
                 // conversation array does not exist
@@ -273,13 +276,13 @@ extension DatabaseManager {
                         completion(false)
                         return
                     }
-                    self?.finishCreatingConversation(name: name, conversationID: conversationId, firstMessage: firstMessage, completion: completion)
+                    self?.finishCreatingConversation(name: name, participants: readUsers, conversationID: conversationId, firstMessage: firstMessage, completion: completion)
                 })
             }
         })
     }
     
-    private func finishCreatingConversation(name: String, conversationID: String, firstMessage: Message, completion: @escaping (Bool) -> Void) {
+    private func finishCreatingConversation(name: String, participants: [String:Bool], conversationID: String, firstMessage: Message, completion: @escaping (Bool) -> Void) {
         //        "messages" : [
         //            {
         //                "id" : Stirng,
@@ -327,6 +330,16 @@ extension DatabaseManager {
         
         let currentUserEmail = DatabaseManager.safeEmail(emailAddress: myEmail)
         
+//        let collectionMessage: [String:Any] = [
+//            "id": firstMessage.messageId,
+//            "type": firstMessage.kind.messageKindString,
+//            "content": message,
+//            "date": dateString,
+//            "sender_email": currentUserEmail,
+//            "is_read": false,
+//            "name": name
+//        ]
+        
         let collectionMessage: [String:Any] = [
             "id": firstMessage.messageId,
             "type": firstMessage.kind.messageKindString,
@@ -334,13 +347,13 @@ extension DatabaseManager {
             "date": dateString,
             "sender_email": currentUserEmail,
             "is_read": false,
+            "readUsers": participants,
             "name": name
         ]
         
         let value: [String:Any] = [
-            "messages": [
-                collectionMessage
-            ]
+            "messages": [ collectionMessage ],
+            "participants": participants
         ]
         
         database.child("\(conversationID)").setValue(value, withCompletionBlock: { error, _ in
@@ -369,11 +382,12 @@ extension DatabaseManager {
                       let latestMessage = dictionary["latest_message"] as? [String:Any],
                       let date = latestMessage["date"] as? String,
                       let message = latestMessage["message"] as? String,
-                      let isRead = latestMessage["is_read"] as? Bool else {
+                      let isRead = latestMessage["is_read"] as? Bool,
+                      let readUsers = latestMessage["readUsers"] as? [String:Bool] else {
                     return nil
                 }
                 
-                let latestMessageObject = LatestMessage(date: date, text: message, isRead: isRead)
+                let latestMessageObject = LatestMessage(date: date, text: message, isRead: isRead, readUsers: readUsers)
                 return Conversation(id: conversationId, name: name, otherUserEmail: otherUserEmail, latestMessage: latestMessageObject)
             })
             
@@ -381,9 +395,59 @@ extension DatabaseManager {
         })
     }
     
+    /// Update messages read count
+    // #PKH: 채팅방 내의 읽음 카운트 처리
+    public func updateMessageReadCount(_ values: [[String:Any]], _ id: String, _ myEmail: String) {
+        for (index, value) in values.enumerated() {
+            if let name = value["name"] as? String,
+               let isRead = value["is_read"] as? Bool,
+               let messageID = value["id"] as? String,
+               let content = value["content"] as? String,
+               let senderEmail = value["sender_email"] as? String,
+               let type = value["type"] as? String,
+               let dateString = value["date"] as? String,
+               let readUsers = value["readUsers"] as? [String:Bool] {
+               
+                if !myEmail.elementsEqual(senderEmail) {
+                    let updateMessage: [String: Any] = ["name" : name,
+                                                        "is_read" : isRead,
+                                                        "id" : messageID,
+                                                        "content" : content,
+                                                        "sender_email" : senderEmail,
+                                                        "type" : type,
+                                                        "date" : dateString,
+                                                        "readUsers" : [myEmail:true, senderEmail:true]]
+                    let childUpdates = ["\(id)/messages/\(index)/" : updateMessage]
+                    
+                    database.updateChildValues(childUpdates)
+                }
+            }
+        }
+    }
+    
     /// Gets all messages for a given conversation
     // #PKH: 채팅방 내의 대화 목록 리스트 조회
     public func getAllMessagesForConversation(with id: String, completion: @escaping (Result<[Message], Error>) -> Void) {
+        
+        // data read 후 update message read count
+        database.child("\(id)/messages").observe(.value, with: { [weak self] snapshot in
+            guard let storngSelf = self else { return }
+            
+            guard let value = snapshot.value as? [[String:Any]] else {
+                completion(.failure(DatabaseError.failedToFetch))
+                return
+            }
+            
+            guard let myEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+                return
+            }
+            
+            let currentEmail = DatabaseManager.safeEmail(emailAddress: myEmail)
+            
+            
+            storngSelf.updateMessageReadCount(value, id, currentEmail)
+        })
+        
         database.child("\(id)/messages").observe(.value, with: { snapshot in
             guard let value = snapshot.value as? [[String:Any]] else {
                 completion(.failure(DatabaseError.failedToFetch))
@@ -394,18 +458,18 @@ extension DatabaseManager {
             // is_read true로 저장
             
             /*
-            for var message in value {
-                message["is_read"] = true
-            }
-            self.database.child("\(id)/messages").setValue(value)
-            
-            self.database.child("\(id)/messages").observe(.value, with: { snapshot in
-                guard let value = snapshot.value as? [[String: Any]] else {
-                    completion(.failure(DatabaseError.failedToFetch))
-                    return
-                }
-            })
-            */
+             for var message in value {
+             message["is_read"] = true
+             }
+             self.database.child("\(id)/messages").setValue(value)
+             
+             self.database.child("\(id)/messages").observe(.value, with: { snapshot in
+             guard let value = snapshot.value as? [[String: Any]] else {
+             completion(.failure(DatabaseError.failedToFetch))
+             return
+             }
+             })
+             */
             let messages: [Message] = value.compactMap({ dictionary in
                 guard let name = dictionary["name"] as? String,
                       let isRead = dictionary["is_read"] as? Bool,
@@ -414,6 +478,7 @@ extension DatabaseManager {
                       let senderEmail = dictionary["sender_email"] as? String,
                       let type = dictionary["type"] as? String,
                       let dateString = dictionary["date"] as? String,
+                      let readUsers = dictionary["readUsers"] as? [String:Bool],
                       let date = ChatViewController.dateFormatter.date(from: dateString) else {
                     return nil
                 }
@@ -461,7 +526,7 @@ extension DatabaseManager {
                 
                 let sender = Sender(photoURL: "", senderId: senderEmail, displayName: name)
                 
-                return Message(sender: sender, messageId: messageID, sentDate: date, kind: finalKind, is_read: isRead)
+                return Message(sender: sender, messageId: messageID, sentDate: date, kind: finalKind, is_read: isRead, readUsers: readUsers)
             })
             
             completion(.success(messages))
@@ -541,6 +606,7 @@ extension DatabaseManager {
                 "date": dateString,
                 "sender_email": currentUserEmail,
                 "is_read": false,
+                "readUsers": [currentUserEmail: true, otherUserEmail: false],
                 "name": name
             ]
             
