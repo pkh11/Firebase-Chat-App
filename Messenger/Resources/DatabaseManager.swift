@@ -185,7 +185,7 @@ extension DatabaseManager {
                 return
             }
             
-            let readUsers: [String:Bool] = [safeEmail:true, otherUserEmail:false]
+            let participants: [String:Bool] = [safeEmail:true, otherUserEmail:false]
             let messageDate = firstMessage.sentDate
             let dateString = ChatViewController.dateFormatter.string(from: messageDate)
             
@@ -224,7 +224,7 @@ extension DatabaseManager {
                     "date": dateString,
                     "message": message,
                     "is_read" : false,
-                    "readUsers" : readUsers
+                    "readUsers" : participants
                 ]
             ]
             
@@ -236,7 +236,7 @@ extension DatabaseManager {
                     "date": dateString,
                     "message": message,
                     "is_read" : false,
-                    "readUsers" : readUsers
+                    "readUsers" : participants
                 ]
             ]
             // Update recipent conversation entry
@@ -263,7 +263,7 @@ extension DatabaseManager {
                         completion(false)
                         return
                     }
-                    self?.finishCreatingConversation(name: name, participants: readUsers, conversationID: conversationId, firstMessage: firstMessage, completion: completion)
+                    self?.finishCreatingConversation(name: currentName, participants: participants, conversationID: conversationId, firstMessage: firstMessage, completion: completion)
                 })
             } else {
                 // conversation array does not exist
@@ -276,7 +276,7 @@ extension DatabaseManager {
                         completion(false)
                         return
                     }
-                    self?.finishCreatingConversation(name: name, participants: readUsers, conversationID: conversationId, firstMessage: firstMessage, completion: completion)
+                    self?.finishCreatingConversation(name: currentName, participants: participants, conversationID: conversationId, firstMessage: firstMessage, completion: completion)
                 })
             }
         })
@@ -346,6 +346,7 @@ extension DatabaseManager {
             "content": message,
             "date": dateString,
             "sender_email": currentUserEmail,
+            "sender_name": name,
             "is_read": false,
             "readUsers": participants,
             "name": name
@@ -395,32 +396,60 @@ extension DatabaseManager {
         })
     }
     
+    public func updateStateOfParticipants(_ chatRoomsId: String, _ state: Bool, completion: @escaping (Bool) -> Void) {
+        guard let myEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        let currentEmail = DatabaseManager.safeEmail(emailAddress: myEmail)
+        
+        let updateMessage: [String: Bool] = [currentEmail:state]
+        database.child("\(chatRoomsId)/participants/").updateChildValues(updateMessage) { (error, _) in
+            guard error == nil else {
+                completion(false)
+                return
+            }
+        }
+        
+        completion(true)
+    }
+    
     /// Update messages read count
     // #PKH: 채팅방 내의 읽음 카운트 처리
-    public func updateMessageReadCount(_ values: [[String:Any]], _ id: String, _ myEmail: String) {
+    public func updateMessageReadCount(_ values: [Message], _ id: String, _ myEmail: String) {
         for (index, value) in values.enumerated() {
-            if let name = value["name"] as? String,
-               let isRead = value["is_read"] as? Bool,
-               let messageID = value["id"] as? String,
-               let content = value["content"] as? String,
-               let senderEmail = value["sender_email"] as? String,
-               let type = value["type"] as? String,
-               let dateString = value["date"] as? String,
-               let readUsers = value["readUsers"] as? [String:Bool] {
+            let senderEmail = value.sender.senderId
+            let isRead = value.is_read
                
-                if !myEmail.elementsEqual(senderEmail) {
-                    let updateMessage: [String: Any] = ["name" : name,
-                                                        "is_read" : isRead,
-                                                        "id" : messageID,
-                                                        "content" : content,
-                                                        "sender_email" : senderEmail,
-                                                        "type" : type,
-                                                        "date" : dateString,
-                                                        "readUsers" : [myEmail:true, senderEmail:true]]
-                    let childUpdates = ["\(id)/messages/\(index)/" : updateMessage]
-                    
-                    database.updateChildValues(childUpdates)
-                }
+            if !myEmail.elementsEqual(senderEmail) {
+                let childUpdates = ["\(id)/messages/\(index)/is_read" : true]
+                
+                database.updateChildValues(childUpdates)
+                print("sucess update isRead : true")
+            }
+        }
+    }
+    
+    public func getParticipantsState(_ id: String, _ message: [Message], completion: @escaping (Bool) -> Void) {
+        guard let myEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        let currentEmail = DatabaseManager.safeEmail(emailAddress: myEmail)
+        
+        database.child("\(id)/participants").observe(.value) { [weak self] snapshot in
+            
+            guard let strongSelf = self else { return }
+            guard let values = snapshot.value as? [[String:Bool]] else {
+                completion(false)
+                return
+            }
+            
+            let otherUser = values.filter{ !$0.keys.contains("\(currentEmail)") }.map{ $0.values }
+            guard let other = otherUser.first, let state = other.first else { return }
+            
+            if !state {
+              // update read count
+                strongSelf.updateMessageReadCount(message, id, currentEmail)
+                completion(true)
             }
         }
     }
@@ -431,47 +460,17 @@ extension DatabaseManager {
         
         // data read 후 update message read count
         database.child("\(id)/messages").observe(.value, with: { [weak self] snapshot in
-            guard let storngSelf = self else { return }
-            
-            guard let value = snapshot.value as? [[String:Any]] else {
-                completion(.failure(DatabaseError.failedToFetch))
-                return
-            }
-            
-            guard let myEmail = UserDefaults.standard.value(forKey: "email") as? String else {
-                return
-            }
-            
-            let currentEmail = DatabaseManager.safeEmail(emailAddress: myEmail)
-            
-            
-            storngSelf.updateMessageReadCount(value, id, currentEmail)
-        })
         
-        database.child("\(id)/messages").observe(.value, with: { snapshot in
             guard let value = snapshot.value as? [[String:Any]] else {
                 completion(.failure(DatabaseError.failedToFetch))
                 return
             }
-            
+
             // TODO: 읽음처리 (as-is(비효율적) : observe -> update -> setValue -> observe -> )
             // is_read true로 저장
-            
-            /*
-             for var message in value {
-             message["is_read"] = true
-             }
-             self.database.child("\(id)/messages").setValue(value)
-             
-             self.database.child("\(id)/messages").observe(.value, with: { snapshot in
-             guard let value = snapshot.value as? [[String: Any]] else {
-             completion(.failure(DatabaseError.failedToFetch))
-             return
-             }
-             })
-             */
             let messages: [Message] = value.compactMap({ dictionary in
                 guard let name = dictionary["name"] as? String,
+                      let senderName = dictionary["sender_name"] as? String,
                       let isRead = dictionary["is_read"] as? Bool,
                       let messageID = dictionary["id"] as? String,
                       let content = dictionary["content"] as? String,
@@ -524,11 +523,16 @@ extension DatabaseManager {
                     return nil
                 }
                 
-                let sender = Sender(photoURL: "", senderId: senderEmail, displayName: name)
+                let sender = Sender(photoURL: "", senderId: senderEmail, displayName: name, senderName: senderName)
                 
-                return Message(sender: sender, messageId: messageID, sentDate: date, kind: finalKind, is_read: isRead, readUsers: readUsers)
+                return Message(sender: sender, messageId: messageID, sentDate: date, kind: finalKind, is_read: isRead, readUsers: readUsers, senderName: senderName)
             })
-            
+//            strongSelf.updateStateOfParticipants(id, true) { result in
+//                if result {
+//                    print("success in updateState : true")
+//                    strongSelf.updateMessageReadCount(messages, id, currentEmail)
+//                }
+//            }
             completion(.success(messages))
         })
     }
@@ -539,12 +543,14 @@ extension DatabaseManager {
         // add new message to messages
         // update sender latest message
         // update recipient latest message
-        guard let myEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+        guard let myEmail = UserDefaults.standard.value(forKey: "email") as? String, let myName = UserDefaults.standard.value(forKey: "name") as? String  else {
             completion(false)
             return
         }
         
         let currentEmail = DatabaseManager.safeEmail(emailAddress: myEmail)
+        
+        // TODO: getParticipantsState -> updateReadCount 
         
         // #PKH: 현재 대화방 메세지 조회
         database.child("\(conversation)/messages").observeSingleEvent(of: .value, with: { [weak self] snapshot in
@@ -605,6 +611,7 @@ extension DatabaseManager {
                 "content": message,
                 "date": dateString,
                 "sender_email": currentUserEmail,
+                "sender_name": myName,
                 "is_read": false,
                 "readUsers": [currentUserEmail: true, otherUserEmail: false],
                 "name": name
@@ -625,7 +632,8 @@ extension DatabaseManager {
                     let updatedValue: [String: Any] = [
                         "date": dateString,
                         "is_read": false,
-                        "message": message
+                        "message": message,
+                        "readUsers": [otherUserEmail:false, currentEmail:true]
                     ]
                     
                     if var currentUserConversations = snapshot.value as? [[String: Any]] {
@@ -679,7 +687,8 @@ extension DatabaseManager {
                             let updatedValue: [String: Any] = [
                                 "date": dateString,
                                 "is_read": false,
-                                "message": message
+                                "message": message,
+                                "readUsers":[otherUserEmail:false, currentEmail:true]
                             ]
                             var databaseEntryConversations = [[String: Any]]()
                             

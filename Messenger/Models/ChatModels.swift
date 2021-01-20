@@ -17,6 +17,7 @@ struct Message: MessageType {
     public var kind: MessageKind
     public var is_read: Bool
     public var readUsers: [String:Bool]
+    public var senderName: String
 }
 
 extension MessageKind {
@@ -50,6 +51,7 @@ struct Sender: SenderType {
     public var photoURL: String
     public var senderId: String
     public var displayName: String
+    public var senderName: String
 }
 
 struct Media: MediaItem {

@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Bucket
+   uuid = "50D52DCC-EDD0-4989-A0EC-FE6006A58909"
+   type = "0"
+   version = "2.0">
+   <Breakpoints>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "61BF913D-7B9F-4B30-9AD7-BFBFCE4519E4"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "Messenger/Resources/DatabaseManager.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "446"
+            endingLineNumber = "446"
+            landmarkName = "getParticipantsState(_:_:completion:)"
+            landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "61BF913D-7B9F-4B30-9AD7-BFBFCE4519E4 - 7f8c9965ed6f442a"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #1 (__C.FIRDataSnapshot) -&gt; () in Messenger.DatabaseManager.getParticipantsState(_: Swift.String, _: Swift.Array&lt;Messenger.Message&gt;, completion: (Swift.Bool) -&gt; ()) -&gt; ()"
+                  moduleName = "Messenger"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/kyoonho/Desktop/ios/Messenger/Messenger/Resources/DatabaseManager.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "446"
+                  endingLineNumber = "446"
+                  offsetFromSymbolStart = "1039">
+               </Location>
+               <Location
+                  uuid = "61BF913D-7B9F-4B30-9AD7-BFBFCE4519E4 - 182a83394771da68"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #1 (Swift.Dictionary&lt;Swift.String, Swift.Bool&gt;) -&gt; Swift.Bool in closure #1 (__C.FIRDataSnapshot) -&gt; () in Messenger.DatabaseManager.getParticipantsState(_: Swift.String, _: Swift.Array&lt;Messenger.Message&gt;, completion: (Swift.Bool) -&gt; ()) -&gt; ()"
+                  moduleName = "Messenger"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/kyoonho/Desktop/ios/Messenger/Messenger/Resources/DatabaseManager.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "446"
+                  endingLineNumber = "446"
+                  offsetFromSymbolStart = "44">
+               </Location>
+               <Location
+                  uuid = "61BF913D-7B9F-4B30-9AD7-BFBFCE4519E4 - f761538515e7c6ce"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #2 (Swift.Dictionary&lt;Swift.String, Swift.Bool&gt;) -&gt; Swift.Dictionary&lt;Swift.String, Swift.Bool&gt;.Values in closure #1 (__C.FIRDataSnapshot) -&gt; () in Messenger.DatabaseManager.getParticipantsState(_: Swift.String, _: Swift.Array&lt;Messenger.Message&gt;, completion: (Swift.Bool) -&gt; ()) -&gt; ()"
+                  moduleName = "Messenger"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/kyoonho/Desktop/ios/Messenger/Messenger/Resources/DatabaseManager.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "446"
+                  endingLineNumber = "446"
+                  offsetFromSymbolStart = "20">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "86964530-1642-4A77-BFE5-B6099840E3B8"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "Messenger/Resources/DatabaseManager.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "447"
+            endingLineNumber = "447"
+            landmarkName = "getParticipantsState(_:_:completion:)"
+            landmarkType = "7">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "272463BE-C1A9-4E1E-AC6D-CA94ED04083E"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "Messenger/Resources/DatabaseManager.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "553"
+            endingLineNumber = "553"
+            landmarkName = "sendMessage(to:otherUserEmail:name:newMessage:completion:)"
+            landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "272463BE-C1A9-4E1E-AC6D-CA94ED04083E - 56ab1537ca12cde2"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "Messenger.DatabaseManager.sendMessage(to: Swift.String, otherUserEmail: Swift.String, name: Swift.String, newMessage: Messenger.Message, completion: (Swift.Bool) -&gt; ()) -&gt; ()"
+                  moduleName = "Messenger"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/kyoonho/Desktop/ios/Messenger/Messenger/Resources/DatabaseManager.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "554"
+                  endingLineNumber = "554"
+                  offsetFromSymbolStart = "1650">
+               </Location>
+               <Location
+                  uuid = "272463BE-C1A9-4E1E-AC6D-CA94ED04083E - ef6ce3f2ed692b35"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #1 (__C.FIRDataSnapshot) -&gt; () in Messenger.DatabaseManager.sendMessage(to: Swift.String, otherUserEmail: Swift.String, name: Swift.String, newMessage: Messenger.Message, completion: (Swift.Bool) -&gt; ()) -&gt; ()"
+                  moduleName = "Messenger"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/kyoonho/Desktop/ios/Messenger/Messenger/Resources/DatabaseManager.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "554"
+                  endingLineNumber = "554"
+                  offsetFromSymbolStart = "559">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+   </Breakpoints>
+</Bucket>
