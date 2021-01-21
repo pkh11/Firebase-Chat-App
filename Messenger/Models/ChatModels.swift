@@ -16,7 +16,6 @@ struct Message: MessageType {
     public var sentDate: Date
     public var kind: MessageKind
     public var is_read: Bool
-    public var readUsers: [String:Bool]
     public var senderName: String
 }
 

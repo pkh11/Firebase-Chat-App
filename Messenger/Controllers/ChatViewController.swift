@@ -49,7 +49,7 @@ final class ChatViewController: MessagesViewController {
             listenFormessages(id: conversationId, shouldScrollToBottom: true)
             DatabaseManager.shared.updateStateOfParticipants(conversationId, true) { result in
                 if result {
-                    print("success update : true")
+//                    print("success update : true")
                 }
             }
         }
@@ -132,7 +132,7 @@ final class ChatViewController: MessagesViewController {
                                   messageId: messageId,
                                   sentDate: Date(),
                                   kind: .location(location),
-                                  is_read: false, readUsers: [:], senderName: selfSender.senderName)
+                                  is_read: false, senderName: selfSender.senderName)
             
             DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message, completion: { success in
                 if success {
@@ -206,10 +206,9 @@ final class ChatViewController: MessagesViewController {
                 
                 DatabaseManager.shared.getParticipantsState(id, messages) { result in
                     if result {
-                        print("success to get state: \(result)")
+//                        print("success to get state: \(result)")
                     }
                 }
-                
                 DispatchQueue.main.async {
                     self?.messagesCollectionView.reloadDataAndKeepOffset()
                     
@@ -217,6 +216,7 @@ final class ChatViewController: MessagesViewController {
                         self?.messagesCollectionView.scrollToBottom()
                     }
                 }
+                
                 
             case .failure(let error):
                 print("failed to get messages: \(error)")
@@ -237,7 +237,7 @@ final class ChatViewController: MessagesViewController {
         if let conversationId = conversationId {
             DatabaseManager.shared.updateStateOfParticipants(conversationId, false) { result in
                 if result {
-                    print("success in updateState : false")
+//                    print("success in updateState : false")
                 }
             }
         }
@@ -286,7 +286,7 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
                                           messageId: messageId,
                                           sentDate: Date(),
                                           kind: .photo(media),
-                                          is_read: false, readUsers: [:], senderName: selfSender.senderName)
+                                          is_read: false, senderName: selfSender.senderName)
                     
                     DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message, completion: { success in
                         
@@ -331,7 +331,7 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
                                           messageId: messageId,
                                           sentDate: Date(),
                                           kind: .video(media),
-                                          is_read: false, readUsers: [:], senderName: selfSender.senderName)
+                                          is_read: false, senderName: selfSender.senderName)
                     
                     DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message, completion: { success in
                         
@@ -362,7 +362,7 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
         
         print("Sending: \(text)")
         
-        let message = Message(sender: selfSender, messageId: messageId, sentDate: Date(), kind: .text(text), is_read: false, readUsers: [:], senderName: selfSender.senderName)
+        let message = Message(sender: selfSender, messageId: messageId, sentDate: Date(), kind: .text(text), is_read: false, senderName: selfSender.senderName)
         
         // Send Message
         if isNewConversation {
@@ -428,7 +428,17 @@ extension ChatViewController: MessagesDataSource, MessagesLayoutDelegate, Messag
     }
     
     func cellBottomLabelHeight(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> CGFloat {
-        return 17
+        guard let info = message as? Message  else {
+            return 0
+        }
+        let my = currentSender().senderId
+        
+        // 나의 메세지
+        if info.sender.senderId.elementsEqual(my) {
+            return 17
+        } else {
+            return 0
+        }
     }
     
     func cellTopLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
@@ -457,16 +467,17 @@ extension ChatViewController: MessagesDataSource, MessagesLayoutDelegate, Messag
     // #PKH: 메세지 읽음 표시
     // TODO: 읽었는지 안읽었는지 판단
     func cellBottomLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
-        
-        let messageInfo = messages[indexPath.row]
+    
+        guard let info = message as? Message  else {
+            return nil
+        }
         let my = currentSender().senderId
-//        let other = messageInfo.sender.senderId
         
         // 나의 메세지
-        if messageInfo.sender.senderId.elementsEqual(my) {
-            let isRead = messageInfo.is_read
+        if info.sender.senderId.elementsEqual(my) {
+            let isRead = info.is_read
             if isRead {
-                return NSAttributedString(string: "Read", attributes: [NSAttributedString.Key.font: UIFont.boldSystemFont(ofSize: 10), NSAttributedString.Key.foregroundColor: UIColor.darkGray])
+                return NSAttributedString(string: "Readed", attributes: [NSAttributedString.Key.font: UIFont.boldSystemFont(ofSize: 10), NSAttributedString.Key.foregroundColor: UIColor.darkGray])
             } else {
                 return NSAttributedString(string: "UnRead", attributes: [NSAttributedString.Key.font: UIFont.boldSystemFont(ofSize: 10), NSAttributedString.Key.foregroundColor: UIColor.darkGray])
             }
@@ -476,7 +487,10 @@ extension ChatViewController: MessagesDataSource, MessagesLayoutDelegate, Messag
     
     // #PKH: 보낸사람/받는사람 이름 표시
     func messageTopLabelAttributedText(for message: MessageType, at indexPath: IndexPath) -> NSAttributedString? {
-        let name = messages[indexPath.row].senderName
+        guard let message = message as? Message  else {
+            return nil
+        }
+        let name = message.senderName
         return NSAttributedString(string: name, attributes: [NSAttributedString.Key.font: UIFont.preferredFont(forTextStyle: .caption1)])
     }
     

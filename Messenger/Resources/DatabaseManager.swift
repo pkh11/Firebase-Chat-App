@@ -223,8 +223,7 @@ extension DatabaseManager {
                 "latest_message" : [
                     "date": dateString,
                     "message": message,
-                    "is_read" : false,
-                    "readUsers" : participants
+                    "is_read" : false
                 ]
             ]
             
@@ -235,8 +234,7 @@ extension DatabaseManager {
                 "latest_message" : [
                     "date": dateString,
                     "message": message,
-                    "is_read" : false,
-                    "readUsers" : participants
+                    "is_read" : false
                 ]
             ]
             // Update recipent conversation entry
@@ -329,17 +327,6 @@ extension DatabaseManager {
         }
         
         let currentUserEmail = DatabaseManager.safeEmail(emailAddress: myEmail)
-        
-//        let collectionMessage: [String:Any] = [
-//            "id": firstMessage.messageId,
-//            "type": firstMessage.kind.messageKindString,
-//            "content": message,
-//            "date": dateString,
-//            "sender_email": currentUserEmail,
-//            "is_read": false,
-//            "name": name
-//        ]
-        
         let collectionMessage: [String:Any] = [
             "id": firstMessage.messageId,
             "type": firstMessage.kind.messageKindString,
@@ -348,7 +335,6 @@ extension DatabaseManager {
             "sender_email": currentUserEmail,
             "sender_name": name,
             "is_read": false,
-            "readUsers": participants,
             "name": name
         ]
         
@@ -383,12 +369,11 @@ extension DatabaseManager {
                       let latestMessage = dictionary["latest_message"] as? [String:Any],
                       let date = latestMessage["date"] as? String,
                       let message = latestMessage["message"] as? String,
-                      let isRead = latestMessage["is_read"] as? Bool,
-                      let readUsers = latestMessage["readUsers"] as? [String:Bool] else {
+                      let isRead = latestMessage["is_read"] as? Bool else {
                     return nil
                 }
                 
-                let latestMessageObject = LatestMessage(date: date, text: message, isRead: isRead, readUsers: readUsers)
+                let latestMessageObject = LatestMessage(date: date, text: message, isRead: isRead)
                 return Conversation(id: conversationId, name: name, otherUserEmail: otherUserEmail, latestMessage: latestMessageObject)
             })
             
@@ -396,6 +381,7 @@ extension DatabaseManager {
         })
     }
     
+    // #PKH: 참여자 접속 상태(채팅방 입장 여부 체크)
     public func updateStateOfParticipants(_ chatRoomsId: String, _ state: Bool, completion: @escaping (Bool) -> Void) {
         guard let myEmail = UserDefaults.standard.value(forKey: "email") as? String else {
             return
@@ -418,17 +404,15 @@ extension DatabaseManager {
     public func updateMessageReadCount(_ values: [Message], _ id: String, _ myEmail: String) {
         for (index, value) in values.enumerated() {
             let senderEmail = value.sender.senderId
-            let isRead = value.is_read
                
             if !myEmail.elementsEqual(senderEmail) {
                 let childUpdates = ["\(id)/messages/\(index)/is_read" : true]
-                
                 database.updateChildValues(childUpdates)
-                print("sucess update isRead : true")
             }
         }
     }
     
+    // #PKH: 채팅방 참여자 조회
     public func getParticipantsState(_ id: String, _ message: [Message], completion: @escaping (Bool) -> Void) {
         guard let myEmail = UserDefaults.standard.value(forKey: "email") as? String else {
             return
@@ -438,18 +422,21 @@ extension DatabaseManager {
         database.child("\(id)/participants").observe(.value) { [weak self] snapshot in
             
             guard let strongSelf = self else { return }
-            guard let values = snapshot.value as? [[String:Bool]] else {
+            guard let values = snapshot.value as? [String:Bool] else {
                 completion(false)
                 return
             }
             
-            let otherUser = values.filter{ !$0.keys.contains("\(currentEmail)") }.map{ $0.values }
-            guard let other = otherUser.first, let state = other.first else { return }
+            let otherUser = values.filter{ !$0.key.contains("\(currentEmail)") }
             
-            if !state {
-              // update read count
-                strongSelf.updateMessageReadCount(message, id, currentEmail)
-                completion(true)
+            if otherUser.count == 1 {
+                guard let state = otherUser.map({ $0.value }).first else { return }
+                
+                if state {
+                  // update read count
+                    strongSelf.updateMessageReadCount(message, id, currentEmail)
+                    completion(true)
+                }
             }
         }
     }
@@ -459,7 +446,7 @@ extension DatabaseManager {
     public func getAllMessagesForConversation(with id: String, completion: @escaping (Result<[Message], Error>) -> Void) {
         
         // data read 후 update message read count
-        database.child("\(id)/messages").observe(.value, with: { [weak self] snapshot in
+        database.child("\(id)/messages").observe(.value, with: { snapshot in
         
             guard let value = snapshot.value as? [[String:Any]] else {
                 completion(.failure(DatabaseError.failedToFetch))
@@ -477,7 +464,6 @@ extension DatabaseManager {
                       let senderEmail = dictionary["sender_email"] as? String,
                       let type = dictionary["type"] as? String,
                       let dateString = dictionary["date"] as? String,
-                      let readUsers = dictionary["readUsers"] as? [String:Bool],
                       let date = ChatViewController.dateFormatter.date(from: dateString) else {
                     return nil
                 }
@@ -525,14 +511,9 @@ extension DatabaseManager {
                 
                 let sender = Sender(photoURL: "", senderId: senderEmail, displayName: name, senderName: senderName)
                 
-                return Message(sender: sender, messageId: messageID, sentDate: date, kind: finalKind, is_read: isRead, readUsers: readUsers, senderName: senderName)
+                return Message(sender: sender, messageId: messageID, sentDate: date, kind: finalKind, is_read: isRead, senderName: senderName)
             })
-//            strongSelf.updateStateOfParticipants(id, true) { result in
-//                if result {
-//                    print("success in updateState : true")
-//                    strongSelf.updateMessageReadCount(messages, id, currentEmail)
-//                }
-//            }
+            
             completion(.success(messages))
         })
     }
@@ -550,7 +531,8 @@ extension DatabaseManager {
         
         let currentEmail = DatabaseManager.safeEmail(emailAddress: myEmail)
         
-        // TODO: getParticipantsState -> updateReadCount 
+        // TODO: getParticipantsState -> updateReadCount
+        
         
         // #PKH: 현재 대화방 메세지 조회
         database.child("\(conversation)/messages").observeSingleEvent(of: .value, with: { [weak self] snapshot in
@@ -563,6 +545,72 @@ extension DatabaseManager {
                 return
             }
             
+            // update read count
+            let datas: [Message] = currentMessages.compactMap({ dictionary in
+                guard let name = dictionary["name"] as? String,
+                      let senderName = dictionary["sender_name"] as? String,
+                      let isRead = dictionary["is_read"] as? Bool,
+                      let messageID = dictionary["id"] as? String,
+                      let content = dictionary["content"] as? String,
+                      let senderEmail = dictionary["sender_email"] as? String,
+                      let type = dictionary["type"] as? String,
+                      let dateString = dictionary["date"] as? String,
+                      let date = ChatViewController.dateFormatter.date(from: dateString) else {
+                    return nil
+                }
+                
+                var kind: MessageKind?
+                if type == "photo" {
+                    // photo
+                    guard let imageUrl = URL(string: content),
+                          let placeHolder = UIImage(systemName: "plus") else {
+                        return nil
+                    }
+                    let media = Media(url: imageUrl, image: nil, placeholderImage: placeHolder, size: CGSize(width: 300, height: 300))
+                    kind = .photo(media)
+                } else if type == "video" {
+                    // video
+                    guard let videoUrl = URL(string: content),
+                          let placeHolder = UIImage(named: "video_placeholder") else {
+                        return nil
+                    }
+                    
+                    let media = Media(url: videoUrl,
+                                      image: nil,
+                                      placeholderImage: placeHolder,
+                                      size: CGSize(width: 300, height: 300))
+                    kind = .video(media)
+                } else if type == "location" {
+                    let locationComponents = content.components(separatedBy: ",")
+                    guard let longitude = Double(locationComponents[0]),
+                          let latitude = Double(locationComponents[1]) else {
+                        return nil
+                    }
+                    print("Rendering location; long=\(longitude) | lat=\(latitude)")
+                    
+                    let location = Location(location: CLLocation(latitude: latitude, longitude: longitude),
+                                            size: CGSize(width: 300, height: 300))
+                    
+                    kind = .location(location)
+                } else {
+                    kind = .text(content)
+                }
+                
+                guard let finalKind = kind else {
+                    return nil
+                }
+                
+                let sender = Sender(photoURL: "", senderId: senderEmail, displayName: name, senderName: senderName)
+                return Message(sender: sender, messageId: messageID, sentDate: date, kind: finalKind, is_read: isRead, senderName: senderName)
+            })
+            
+            strongSelf.getParticipantsState(conversation, datas, completion: { result in
+                if result {
+//                    print("success to get state: \(result)")
+                }
+            })
+            
+            // make message object
             let messageDate = newMessage.sentDate
             let dateString = ChatViewController.dateFormatter.string(from: messageDate)
             
@@ -613,7 +661,6 @@ extension DatabaseManager {
                 "sender_email": currentUserEmail,
                 "sender_name": myName,
                 "is_read": false,
-                "readUsers": [currentUserEmail: true, otherUserEmail: false],
                 "name": name
             ]
             
@@ -632,8 +679,7 @@ extension DatabaseManager {
                     let updatedValue: [String: Any] = [
                         "date": dateString,
                         "is_read": false,
-                        "message": message,
-                        "readUsers": [otherUserEmail:false, currentEmail:true]
+                        "message": message
                     ]
                     
                     if var currentUserConversations = snapshot.value as? [[String: Any]] {
@@ -656,8 +702,7 @@ extension DatabaseManager {
                             let newConversationData: [String: Any] = [
                                 "id": conversation,
                                 "other_user_email": DatabaseManager.safeEmail(emailAddress: otherUserEmail),
-                                "name": name,
-                                "latest_message": updatedValue
+                                "name": name
                             ]
                             currentUserConversations.append(newConversationData)
                             databaseEntryConversations = currentUserConversations
@@ -666,8 +711,7 @@ extension DatabaseManager {
                         let newConversationData: [String: Any] = [
                             "id": conversation,
                             "other_user_email": DatabaseManager.safeEmail(emailAddress: otherUserEmail),
-                            "name": name,
-                            "latest_message": updatedValue
+                            "name": name
                         ]
                         databaseEntryConversations = [
                             newConversationData
@@ -687,8 +731,7 @@ extension DatabaseManager {
                             let updatedValue: [String: Any] = [
                                 "date": dateString,
                                 "is_read": false,
-                                "message": message,
-                                "readUsers":[otherUserEmail:false, currentEmail:true]
+                                "message": message
                             ]
                             var databaseEntryConversations = [[String: Any]]()
                             
