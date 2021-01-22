@@ -412,6 +412,34 @@ extension DatabaseManager {
         }
     }
     
+    public func updateMessageReadCountOfList(_ id: String, _ myEmail: String) {
+        database.child("\(myEmail)/conversations").observe(.value, with: { [weak self] snapshot in
+            guard let strongSelf = self else { return }
+            guard let value = snapshot.value as? [[String:Any]] else {
+                return
+            }
+            
+            let conversations: [Conversation] = value.compactMap({ dictionary in
+                guard let conversationId = dictionary["id"] as? String,
+                      let name = dictionary["name"] as? String,
+                      let otherUserEmail = dictionary["other_user_email"] as? String,
+                      let latestMessage = dictionary["latest_message"] as? [String:Any],
+                      let date = latestMessage["date"] as? String,
+                      let message = latestMessage["message"] as? String,
+                      let isRead = latestMessage["is_read"] as? Bool else {
+                    return nil
+                }
+                let latestMessageObject = LatestMessage(date: date, text: message, isRead: isRead)
+                return Conversation(id: conversationId, name: name, otherUserEmail: otherUserEmail, latestMessage: latestMessageObject)
+            })
+            
+            if let index = conversations.filter({ $0.id == id }).enumerated().map({ $0.offset }).first {
+                let latestMessageUpdates = ["\(myEmail)/conversations/\(index)/latest_message/is_read" : true]
+                strongSelf.database.updateChildValues(latestMessageUpdates)
+            }
+        })
+    }
+    
     // #PKH: 채팅방 참여자 조회
     public func getParticipantsState(_ id: String, _ message: [Message], completion: @escaping (Bool) -> Void) {
         guard let myEmail = UserDefaults.standard.value(forKey: "email") as? String else {
@@ -431,10 +459,11 @@ extension DatabaseManager {
             
             if otherUser.count == 1 {
                 guard let state = otherUser.map({ $0.value }).first else { return }
-                
+                print("other user state: \(state)")
                 if state {
                   // update read count
                     strongSelf.updateMessageReadCount(message, id, currentEmail)
+                    strongSelf.updateMessageReadCountOfList(id, currentEmail)
                     completion(true)
                 }
             }

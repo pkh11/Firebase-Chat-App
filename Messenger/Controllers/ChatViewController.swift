@@ -226,6 +226,7 @@ final class ChatViewController: MessagesViewController {
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        print("////// view Did Appear ///////")
         messageInputBar.inputTextView.becomeFirstResponder()
         if let conversationId = conversationId {
             listenFormessages(id: conversationId, shouldScrollToBottom: true)
@@ -233,7 +234,7 @@ final class ChatViewController: MessagesViewController {
     }
     
     override func viewDidDisappear(_ animated: Bool) {
-        super.viewDidAppear(animated)
+        super.viewDidDisappear(animated)
         if let conversationId = conversationId {
             DatabaseManager.shared.updateStateOfParticipants(conversationId, false) { result in
                 if result {

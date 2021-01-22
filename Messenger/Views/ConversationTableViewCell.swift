@@ -35,11 +35,24 @@ class ConversationTableViewCell: UITableViewCell {
         return label
     }()
     
+    private let readCountLabel: UILabel = {
+       let label = UILabel()
+        label.font = .systemFont(ofSize: 17, weight: .regular)
+        label.textColor = .white
+        label.textAlignment = .center
+        label.numberOfLines = 1
+        label.backgroundColor = .red
+        label.clipsToBounds = true
+        label.layer.cornerRadius = 10
+        return label
+    }()
+    
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         contentView.addSubview(userImageView)
         contentView.addSubview(userNameLabel)
         contentView.addSubview(userMessageLabel)
+        contentView.addSubview(readCountLabel)
     }
     
     required init?(coder: NSCoder) {
@@ -51,12 +64,21 @@ class ConversationTableViewCell: UITableViewCell {
         
         userImageView.frame = CGRect(x: 10, y: 10, width: 100, height: 100)
         userNameLabel.frame = CGRect(x: userImageView.right + 10, y: 10, width: contentView.width - 20 - userImageView.width, height: (contentView.height-20)/2)
-        userMessageLabel.frame = CGRect(x: userImageView.right + 10, y: userNameLabel.bottom + 10, width: contentView.width - 20 - userImageView.width, height: (contentView.height-20)/2)
+        userMessageLabel.frame = CGRect(x: userImageView.right + 10, y: userNameLabel.bottom + 10, width: contentView.width - 40 - userImageView.width, height: (contentView.height-20)/2)
+        readCountLabel.frame = CGRect(x: contentView.width - 30, y: contentView.height - 25, width: 20, height: 20)
     }
     
     public func configure(with model: Conversation) {
         self.userMessageLabel.text = model.latestMessage.text
         self.userNameLabel.text = model.name
+        
+        let isReadLastestMessage = model.latestMessage.isRead
+        if isReadLastestMessage {
+            self.readCountLabel.isHidden = true
+        } else {
+            self.readCountLabel.isHidden = false
+            self.readCountLabel.text = "N"
+        }
         
         let path = "images/\(model.otherUserEmail)_profile_picture.png"
         StorageManager.shared.downloadURL(for: path, completion: { [weak self] result in
