@@ -61,7 +61,6 @@ final class ChatViewController: MessagesViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-//        view.backgroundColor = .red
     
         messagesCollectionView.messagesDataSource = self
         messagesCollectionView.messagesLayoutDelegate = self
@@ -121,8 +120,6 @@ final class ChatViewController: MessagesViewController {
             
             let longitude: Double = selectedCoorindates.longitude
             let latitude: Double = selectedCoorindates.latitude
-            
-            print("long=\(longitude) | lat= \(latitude)")
             
             
             let location = Location(location: CLLocation(latitude: latitude, longitude: longitude),
@@ -195,6 +192,8 @@ final class ChatViewController: MessagesViewController {
     private func listenFormessages(id: String, shouldScrollToBottom: Bool) {
         
         DatabaseManager.shared.getAllMessagesForConversation(with: id, completion: { [weak self] result in
+            guard let strongSelf = self,
+                  let selfSender = strongSelf.selfSender else { return }
             switch result {
             case .success(let messages):
                 print("success in getting message : \(messages)")
@@ -204,9 +203,9 @@ final class ChatViewController: MessagesViewController {
                 }
                 self?.messages = messages
                 
-                DatabaseManager.shared.getParticipantsState(id, messages) { result in
+                DatabaseManager.shared.getParticipantsState(id) { result in
                     if result {
-//                        print("success to get state: \(result)")
+                        DatabaseManager.shared.updateMessageReadCount(id, selfSender.senderId)
                     }
                 }
                 DispatchQueue.main.async {
@@ -226,10 +225,14 @@ final class ChatViewController: MessagesViewController {
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        print("////// view Did Appear ///////")
         messageInputBar.inputTextView.becomeFirstResponder()
         if let conversationId = conversationId {
             listenFormessages(id: conversationId, shouldScrollToBottom: true)
+            DatabaseManager.shared.updateStateOfParticipants(conversationId, true) { result in
+                if result {
+                    print("success update : true")
+                }
+            }
         }
     }
     
@@ -238,7 +241,7 @@ final class ChatViewController: MessagesViewController {
         if let conversationId = conversationId {
             DatabaseManager.shared.updateStateOfParticipants(conversationId, false) { result in
                 if result {
-//                    print("success in updateState : false")
+                    print("success in updateStatde : false")
                 }
             }
         }

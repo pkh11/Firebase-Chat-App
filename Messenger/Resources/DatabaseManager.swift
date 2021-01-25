@@ -401,55 +401,72 @@ extension DatabaseManager {
     
     /// Update messages read count
     // #PKH: 채팅방 내의 읽음 카운트 처리
-    public func updateMessageReadCount(_ values: [Message], _ id: String, _ myEmail: String) {
-        for (index, value) in values.enumerated() {
-            let senderEmail = value.sender.senderId
-               
-            if !myEmail.elementsEqual(senderEmail) {
-                let childUpdates = ["\(id)/messages/\(index)/is_read" : true]
-                database.updateChildValues(childUpdates)
-            }
-        }
-    }
-    
-    public func updateMessageReadCountOfList(_ id: String, _ myEmail: String) {
-        database.child("\(myEmail)/conversations").observe(.value, with: { [weak self] snapshot in
+    public func updateMessageReadCount(_ id: String, _ myEmail: String) {
+        
+        database.child("\(id)/messages").observeSingleEvent(of: .value) { [weak self] snapshot in
             guard let strongSelf = self else { return }
             guard let value = snapshot.value as? [[String:Any]] else {
                 return
             }
             
-            let conversations: [Conversation] = value.compactMap({ dictionary in
-                guard let conversationId = dictionary["id"] as? String,
-                      let name = dictionary["name"] as? String,
-                      let otherUserEmail = dictionary["other_user_email"] as? String,
-                      let latestMessage = dictionary["latest_message"] as? [String:Any],
-                      let date = latestMessage["date"] as? String,
-                      let message = latestMessage["message"] as? String,
-                      let isRead = latestMessage["is_read"] as? Bool else {
-                    return nil
+            for (index, message) in value.enumerated() {
+                if let isRead = message["is_read"] as? Bool,
+                   let senderEmail = message["sender_email"] as? String {
+                    
+                    if !myEmail.elementsEqual(senderEmail) &&
+                        !isRead {
+                        let childUpdates = ["\(id)/messages/\(index)/is_read" : true]
+                        strongSelf.database.updateChildValues(childUpdates)
+                    }
                 }
-                let latestMessageObject = LatestMessage(date: date, text: message, isRead: isRead)
-                return Conversation(id: conversationId, name: name, otherUserEmail: otherUserEmail, latestMessage: latestMessageObject)
-            })
-            
-            if let index = conversations.filter({ $0.id == id }).enumerated().map({ $0.offset }).first {
-                let latestMessageUpdates = ["\(myEmail)/conversations/\(index)/latest_message/is_read" : true]
-                strongSelf.database.updateChildValues(latestMessageUpdates)
             }
-        })
+            
+            strongSelf.database.child("\(myEmail)/conversations").observeSingleEvent(of: .value) { snapshot in
+                guard let value = snapshot.value as? [[String:Any]] else {
+                    return
+                }
+            
+                let conversations: [Conversation] = value.compactMap({ dictionary in
+                    guard let conversationId = dictionary["id"] as? String,
+                          let name = dictionary["name"] as? String,
+                          let otherUserEmail = dictionary["other_user_email"] as? String,
+                          let latestMessage = dictionary["latest_message"] as? [String:Any],
+                          let date = latestMessage["date"] as? String,
+                          let message = latestMessage["message"] as? String,
+                          let isRead = latestMessage["is_read"] as? Bool else {
+                        return nil
+                    }
+                    let latestMessageObject = LatestMessage(date: date, text: message, isRead: isRead)
+                    return Conversation(id: conversationId, name: name, otherUserEmail: otherUserEmail, latestMessage: latestMessageObject)
+                })
+                
+                let latestMessage = conversations.filter({ $0.id == id })
+                guard let otherUserEmail = latestMessage.enumerated().map({ $0.element.otherUserEmail }).first else { return }
+                
+                // 상대방 최신 메세지 update
+                if let index = latestMessage.enumerated().map({ $0.offset }).first {
+                    let otherUserMessageUpdates = ["\(otherUserEmail)/conversations/\(index)/latest_message/is_read": true]
+                    strongSelf.database.updateChildValues(otherUserMessageUpdates)
+                }
+            
+                // 나의 최신 메세지 update
+                if let index = conversations.filter({ $0.id == id }).enumerated().map({ $0.offset }).first {
+                    let myMessageUpdates = ["\(myEmail)/conversations/\(index)/latest_message/is_read": true]
+                    strongSelf.database.updateChildValues(myMessageUpdates)
+                }
+            }
+            
+        }
     }
     
     // #PKH: 채팅방 참여자 조회
-    public func getParticipantsState(_ id: String, _ message: [Message], completion: @escaping (Bool) -> Void) {
+    public func getParticipantsState(_ id: String, completion: @escaping (Bool) -> Void) {
         guard let myEmail = UserDefaults.standard.value(forKey: "email") as? String else {
             return
         }
         let currentEmail = DatabaseManager.safeEmail(emailAddress: myEmail)
         
-        database.child("\(id)/participants").observe(.value) { [weak self] snapshot in
-            
-            guard let strongSelf = self else { return }
+        database.child("\(id)/participants").observeSingleEvent(of: .value) { snapshot in
             guard let values = snapshot.value as? [String:Bool] else {
                 completion(false)
                 return
@@ -461,10 +478,9 @@ extension DatabaseManager {
                 guard let state = otherUser.map({ $0.value }).first else { return }
                 print("other user state: \(state)")
                 if state {
-                  // update read count
-                    strongSelf.updateMessageReadCount(message, id, currentEmail)
-                    strongSelf.updateMessageReadCountOfList(id, currentEmail)
                     completion(true)
+                } else {
+                    completion(false)
                 }
             }
         }
@@ -560,9 +576,6 @@ extension DatabaseManager {
         
         let currentEmail = DatabaseManager.safeEmail(emailAddress: myEmail)
         
-        // TODO: getParticipantsState -> updateReadCount
-        
-        
         // #PKH: 현재 대화방 메세지 조회
         database.child("\(conversation)/messages").observeSingleEvent(of: .value, with: { [weak self] snapshot in
             guard let strongSelf = self else {
@@ -573,71 +586,6 @@ extension DatabaseManager {
                 completion(false)
                 return
             }
-            
-            // update read count
-            let datas: [Message] = currentMessages.compactMap({ dictionary in
-                guard let name = dictionary["name"] as? String,
-                      let senderName = dictionary["sender_name"] as? String,
-                      let isRead = dictionary["is_read"] as? Bool,
-                      let messageID = dictionary["id"] as? String,
-                      let content = dictionary["content"] as? String,
-                      let senderEmail = dictionary["sender_email"] as? String,
-                      let type = dictionary["type"] as? String,
-                      let dateString = dictionary["date"] as? String,
-                      let date = ChatViewController.dateFormatter.date(from: dateString) else {
-                    return nil
-                }
-                
-                var kind: MessageKind?
-                if type == "photo" {
-                    // photo
-                    guard let imageUrl = URL(string: content),
-                          let placeHolder = UIImage(systemName: "plus") else {
-                        return nil
-                    }
-                    let media = Media(url: imageUrl, image: nil, placeholderImage: placeHolder, size: CGSize(width: 300, height: 300))
-                    kind = .photo(media)
-                } else if type == "video" {
-                    // video
-                    guard let videoUrl = URL(string: content),
-                          let placeHolder = UIImage(named: "video_placeholder") else {
-                        return nil
-                    }
-                    
-                    let media = Media(url: videoUrl,
-                                      image: nil,
-                                      placeholderImage: placeHolder,
-                                      size: CGSize(width: 300, height: 300))
-                    kind = .video(media)
-                } else if type == "location" {
-                    let locationComponents = content.components(separatedBy: ",")
-                    guard let longitude = Double(locationComponents[0]),
-                          let latitude = Double(locationComponents[1]) else {
-                        return nil
-                    }
-                    print("Rendering location; long=\(longitude) | lat=\(latitude)")
-                    
-                    let location = Location(location: CLLocation(latitude: latitude, longitude: longitude),
-                                            size: CGSize(width: 300, height: 300))
-                    
-                    kind = .location(location)
-                } else {
-                    kind = .text(content)
-                }
-                
-                guard let finalKind = kind else {
-                    return nil
-                }
-                
-                let sender = Sender(photoURL: "", senderId: senderEmail, displayName: name, senderName: senderName)
-                return Message(sender: sender, messageId: messageID, sentDate: date, kind: finalKind, is_read: isRead, senderName: senderName)
-            })
-            
-            strongSelf.getParticipantsState(conversation, datas, completion: { result in
-                if result {
-//                    print("success to get state: \(result)")
-                }
-            })
             
             // make message object
             let messageDate = newMessage.sentDate
@@ -682,7 +630,8 @@ extension DatabaseManager {
             
             let currentUserEmail = DatabaseManager.safeEmail(emailAddress: myEmmail)
             
-            let newMessageEntry: [String: Any] = [
+            
+            var newMessageEntry: [String: Any] = [
                 "id": newMessage.messageId,
                 "type": newMessage.kind.messageKindString,
                 "content": message,
@@ -692,6 +641,12 @@ extension DatabaseManager {
                 "is_read": false,
                 "name": name
             ]
+            
+            strongSelf.getParticipantsState(conversation, completion: { result in
+                if result {
+                    newMessageEntry["is_read"] = true
+                }
+            })
             
             currentMessages.append(newMessageEntry)
             
@@ -707,7 +662,7 @@ extension DatabaseManager {
                     var databaseEntryConversations = [[String: Any]]()
                     let updatedValue: [String: Any] = [
                         "date": dateString,
-                        "is_read": false,
+                        "is_read": true,
                         "message": message
                     ]
                     
